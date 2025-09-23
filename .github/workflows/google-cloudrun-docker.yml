@@ -32,13 +32,15 @@ name: 'Build and Deploy to Cloud Run'
 on:
   push:
     branches:
-      - '"main"'
+      - 'main'
+  workflow_dispatch:
+    
 
 env:
-  PROJECT_ID: 'true-subject-470215-a5' # TODO: update to your Google Cloud project ID
+  PROJECT_ID: 'kinetic-decoder-469720-h3' # TODO: update to your Google Cloud project ID
   REGION: 'us-central1' # TODO: update to your region
   SERVICE: 'my-fastapi-demo' # TODO: update to your service name
-  WORKLOAD_IDENTITY_PROVIDER: 'projects/957531546520/locations/global/workloadIdentityPools/github-pool/providers/github-provider' # TODO: update to your workload identity provider
+  WORKLOAD_IDENTITY_PROVIDER: 'projects/773572072893/locations/global/workloadIdentityPools/github-provider/providers/github-provider' # TODO: update to your workload identity provider
 
 jobs:
   deploy:
@@ -74,9 +76,13 @@ jobs:
 
       - name: 'Build and Push Container'
         run: |-
-          DOCKER_TAG="$${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE }}:${{ github.sha }}"
+          DOCKER_TAG="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE }}:${{ github.sha }}"
           docker build --tag "${DOCKER_TAG}" .
           docker push "${DOCKER_TAG}"
+
+      - name: 'Set gcloud project'
+        run: gcloud config set project "${{ env.PROJECT_ID }}"  
+           
       - name: 'Deploy to Cloud Run'
 
         # END - Docker auth and build
