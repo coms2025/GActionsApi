@@ -35,7 +35,6 @@ on:
       - 'main'
   workflow_dispatch:
     
-
 env:
   PROJECT_ID: 'kinetic-decoder-469720-h3' # TODO: update to your Google Cloud project ID
   REGION: 'us-central1' # TODO: update to your region
