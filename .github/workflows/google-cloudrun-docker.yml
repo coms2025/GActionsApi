@@ -40,7 +40,6 @@ env:
   REGION: 'us-central1' # TODO: update to your region
   SERVICE: 'my-fastapi-demo' # TODO: update to your service name
   WORKLOAD_IDENTITY_PROVIDER: 'projects/773572072893/locations/global/workloadIdentityPools/github-pool/providers/github-provider' # TODO: update to your workload identity provider
-
   
 jobs:
   deploy:
