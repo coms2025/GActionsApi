@@ -64,7 +64,7 @@ jobs:
           #token_format: access_token
           workload_identity_provider: '${{ env.WORKLOAD_IDENTITY_PROVIDER }}'
           service_account: github-deployer@kinetic-decoder-469720-h3.iam.gserviceaccount.com
-          
+
       - name: Debug GCP identity
         run: gcloud auth list
 
