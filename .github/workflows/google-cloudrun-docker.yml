@@ -40,6 +40,7 @@ env:
   REGION: 'us-central1' # TODO: update to your region
   SERVICE: 'my-fastapi-demo' # TODO: update to your service name
   WORKLOAD_IDENTITY_PROVIDER: 'projects/773572072893/locations/global/workloadIdentityPools/github-provider/providers/github-provider' # TODO: update to your workload identity provider
+
   
 jobs:
   deploy:
@@ -61,7 +62,10 @@ jobs:
         name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@f112390a2df9932162083945e46d439060d66ec2' # google-github-actions/auth@v2
         with:
+          token_format: access_token
           workload_identity_provider: '${{ env.WORKLOAD_IDENTITY_PROVIDER }}'
+          service_account: github-deployer@kinetic-decoder-469720-h3.iam.gserviceaccount.com
+
 
       # BEGIN - Docker auth and build
       #
@@ -78,8 +82,7 @@ jobs:
           DOCKER_TAG="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/my-fastapi-demo/${{ env.SERVICE }}:${{ github.sha }}"
           docker build --tag "${DOCKER_TAG}" .
           docker push "${DOCKER_TAG}"
-
-          
+   
       - name: 'Set gcloud project'
         run: gcloud config set project "${{ env.PROJECT_ID }}"  
 
