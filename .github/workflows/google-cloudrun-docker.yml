@@ -40,7 +40,10 @@ env:
   REGION: 'us-central1' # TODO: update to your region
   SERVICE: 'my-fastapi-demo' # TODO: update to your service name
   WORKLOAD_IDENTITY_PROVIDER: 'projects/773572072893/locations/global/workloadIdentityPools/github-pool/providers/github-provider' # TODO: update to your workload identity provider
-  
+  AR_REPO: 'demo'
+  DEPLOYER_SA_EMAIL: "github-deployer@kinetic-decoder-469720-h3.iam.gserviceaccount.com"
+  RUNTIME_SA_EMAIL: "run-runtime@kinetic-decoder-469720-h3.iam.gserviceaccount.com"
+
 jobs:
   deploy:
     runs-on: 'ubuntu-latest'
@@ -59,44 +62,69 @@ jobs:
       # including authenticating via a JSON credentials file.
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
-        uses: 'google-github-actions/auth@f112390a2df9932162083945e46d439060d66ec2' # google-github-actions/auth@v2
+        uses: 'google-github-actions/auth@v2'
         with:
-          workload_identity_provider: '${{ env.WORKLOAD_IDENTITY_PROVIDER }}'
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.DEPLOYER_SA_EMAIL }}
+          
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Compose IMAGE and export to env
+        run: echo "IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.SERVICE }}" >> $GITHUB_ENV
+        
+      - name: Configure Docker to use Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build image
+        run: docker build -t "${IMAGE}:${{ github.sha }}" -t "${IMAGE}:latest" .
+        
+      - name: 'Push image'
+        run: |
+          docker push "${IMAGE}:${{ github.sha }}"
+          docker push "${IMAGE}:latest"  
 
       # BEGIN - Docker auth and build
       #
       # If you already have a container image, you can omit these steps.
-      - name: 'Docker Auth'
-        uses: 'docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567' # docker/login-action@v3
-        with:
-          username: 'oauth2accesstoken'
-          password: '${{ steps.auth.outputs.auth_token }}'
-          registry: '${{ env.REGION }}-docker.pkg.dev'
+      #- name: 'Docker Auth'
+      #  uses: 'docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567' # docker/login-action@v3
+      #  with:
+      #    username: 'oauth2accesstoken'
+      #    password: '${{ steps.auth.outputs.auth_token }}'
+      #    registry: '${{ env.REGION }}-docker.pkg.dev'
 
-      - name: 'Build and Push Container'
-        run: |-
-          DOCKER_TAG="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/demo/${{ env.SERVICE }}:${{ github.sha }}"
-          docker build --tag "${DOCKER_TAG}" .
-          docker push "${DOCKER_TAG}"
-          
+      #- name: 'Build and Push Container'
+      #  run: |-
+      #    DOCKER_TAG="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/demo/${{ env.SERVICE }}:${{ github.sha }}"
+      #    docker build --tag "${DOCKER_TAG}" .
+      #    docker push "${DOCKER_TAG}"
+   
       - name: 'Set gcloud project'
         run: gcloud config set project "${{ env.PROJECT_ID }}"  
 
-      - name: 'Deploy to Cloud Run'
-
-        # END - Docker auth and build
-
-        uses: 'google-github-actions/deploy-cloudrun@33553064113a37d688aa6937bacbdc481580be17' # google-github-actions/deploy-cloudrun@v2
+      - id: deploy
+        name: 'Deploy to Cloud Run'
+        uses: 'google-github-actions/deploy-cloudrun@v2' # google-github-actions/deploy-cloudrun@v2
         with:
           service: '${{ env.SERVICE }}'
           region: '${{ env.REGION }}'
           # NOTE: If using a pre-built image, update the image name below:
+          image: "${{ env.IMAGE }}:${{ github.sha }}"
+          flags: "--service-account=${{ env.RUNTIME_SA_EMAIL }} --allow-unauthenticated"
+          #image: '${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE }}:${{ github.sha }}'
+      # If required, use the Cloud Run URL output in later steps  
+      
+         # END - Docker auth and build
 
-          image: '${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/demo/${{ env.SERVICE }}:${{ github.sha }}'
+       # uses: 'google-github-actions/deploy-cloudrun@33553064113a37d688aa6937bacbdc481580be17' # google-github-actions/deploy-cloudrun@v2
+       # with:
+       #   service: '${{ env.SERVICE }}'
+       #   region: '${{ env.REGION }}'
+       #   # NOTE: If using a pre-built image, update the image name below:
 
+       #   image: '${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/demo/${{ env.SERVICE }}:${{ github.sha }}'
       # If required, use the Cloud Run URL output in later steps
 
       - name: 'Show output'
-        run: |2-
-
-          echo ${{ steps.deploy.outputs.url }}
+        run: echo "${{ steps.deploy.outputs.url }}"
